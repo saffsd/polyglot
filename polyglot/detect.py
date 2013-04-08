@@ -9,6 +9,7 @@ import multiprocessing as mp
 
 from identifier import MultiLanguageIdentifier
 from utils import Timer, MapPool
+import config
 
 def setup_identify(model_path, n_iters, max_lang, thresh):
   global __identifier
@@ -46,11 +47,11 @@ def identify(path):
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument('--iters','-i',type=int, metavar='N', help="perform N iterations of Gibbs sampling", default=5)
+  parser.add_argument('--iters','-i',type=int, metavar='N', help="perform N iterations of Gibbs sampling", default=config.N_ITERS)
   parser.add_argument('--jobs','-j',type=int, metavar='N', help="use N processes", default=mp.cpu_count())
   parser.add_argument('--output','-o', help="output file (csv format)")
-  parser.add_argument('--max_lang', type=int, help="maximum number of langugages to consider per-document", default=10)
-  parser.add_argument('--thresh', '-t', type=float, help="threshold for including a language", default=0.02)
+  parser.add_argument('--max_lang', type=int, help="maximum number of langugages to consider per-document", default=config.MAX_LANG)
+  parser.add_argument('--thresh', '-t', type=float, help="threshold for including a language", default=config.THRESHOLD)
 
   group = parser.add_mutually_exclusive_group()
   group.add_argument('--explain', '-e', action='store_true', help="only explain documents as a breakdown over the full language set")

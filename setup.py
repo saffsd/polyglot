@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 import sys, os
 
 version = '0.1'
@@ -13,7 +13,8 @@ setup(name='polyglot',
       author_email='saffsd@gmail.com',
       url='https://github.com/saffsd/polyglot',
       license='BSD',
-      packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
+      packages=['polyglot'],
+      package_data={'polyglot':['models/*']},
       include_package_data=True,
       zip_safe=False,
       install_requires=[

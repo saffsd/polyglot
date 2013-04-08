@@ -10,6 +10,8 @@ import os
 from cPickle import loads
 from collections import defaultdict
 
+import config
+
 class MultiLanguageIdentifier(object):
   """
   LD feature space tokenizer based on a stripped-down version of
@@ -36,6 +38,13 @@ class MultiLanguageIdentifier(object):
   @classmethod
   def __unpack(cls, string):
     return loads(bz2.decompress(base64.b64decode(string)))
+
+  @classmethod
+  def default(cls, n_iters = config.N_ITERS, max_lang = config.MAX_LANG, thresh=config.THRESHOLD):
+    import pkgutil
+    nb_classes, nb_ptc, tk_nextmove, tk_output = cls.__unpack(pkgutil.get_data('polyglot','models/default'))
+   
+    return cls( nb_classes, nb_ptc, tk_nextmove, tk_output, n_iters, max_lang, thresh)
 
   @classmethod
   def from_modelstring(cls, string, *args, **kwargs):
