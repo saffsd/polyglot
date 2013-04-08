@@ -1,0 +1,6 @@
+Polyglot is a language identifier for detecting text documents containing text
+written in more than one language, and for identifying the languages therein.
+It is an experimental project. For monolingual language detection, langid.py[1]
+is a proven off-the-shelf solution.
+
+[1] https://github.com/saffsd/langid.py
