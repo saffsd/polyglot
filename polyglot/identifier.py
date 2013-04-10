@@ -6,6 +6,7 @@ Marco Lui, April 2013
 import bz2, base64
 import numpy as np
 import os
+import pkgutil
 
 from cPickle import loads
 from collections import defaultdict
@@ -19,36 +20,37 @@ class MultiLanguageIdentifier(object):
   """
 
   @classmethod
-  def list_langs(cls, model):
+  def list_langs(cls, model=None):
     """
     List the languages supported by a pre-trained model.
 
     @param model model string or path to file containing model string
     @returns list of languages supported
     """
-    if os.path.exists(model):
+    if model is None:
+      langs = cls.unpack_model(pkgutil.get_data('polyglot','models/default'))[0]
+    elif os.path.exists(model):
       with open(model) as f:
-        langs = cls.__unpack(f.read())[0]
+        langs = cls.unpack_model(f.read())[0]
     else:
-      langs = cls.__unpack(model)[0]
+      langs = cls.unpack_model(model)[0]
 
     return langs
 
 
   @classmethod
-  def __unpack(cls, string):
+  def unpack_model(cls, string):
     return loads(bz2.decompress(base64.b64decode(string)))
 
   @classmethod
   def default(cls, n_iters = config.N_ITERS, max_lang = config.MAX_LANG, thresh=config.THRESHOLD):
-    import pkgutil
-    nb_classes, nb_ptc, tk_nextmove, tk_output = cls.__unpack(pkgutil.get_data('polyglot','models/default'))
+    nb_classes, nb_ptc, tk_nextmove, tk_output = cls.unpack_model(pkgutil.get_data('polyglot','models/default'))
    
     return cls( nb_classes, nb_ptc, tk_nextmove, tk_output, n_iters, max_lang, thresh)
 
   @classmethod
   def from_modelstring(cls, string, *args, **kwargs):
-    nb_classes, nb_ptc, tk_nextmove, tk_output = cls.__unpack(string)
+    nb_classes, nb_ptc, tk_nextmove, tk_output = cls.unpack_model(string)
    
     return cls( nb_classes, nb_ptc, tk_nextmove, tk_output, *args, **kwargs)
 
