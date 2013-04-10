@@ -7,6 +7,9 @@ import bz2, base64
 import numpy as np
 import os
 import pkgutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 from cPickle import loads
 from collections import defaultdict
@@ -43,10 +46,10 @@ class MultiLanguageIdentifier(object):
     return loads(bz2.decompress(base64.b64decode(string)))
 
   @classmethod
-  def default(cls, n_iters = config.N_ITERS, max_lang = config.MAX_LANG, thresh=config.THRESHOLD):
+  def default(cls, *args, **kwargs):
     nb_classes, nb_ptc, tk_nextmove, tk_output = cls.unpack_model(pkgutil.get_data('polyglot','models/default'))
    
-    return cls( nb_classes, nb_ptc, tk_nextmove, tk_output, n_iters, max_lang, thresh)
+    return cls( nb_classes, nb_ptc, tk_nextmove, tk_output, *args, **kwargs)
 
   @classmethod
   def from_modelstring(cls, string, *args, **kwargs):
@@ -59,14 +62,36 @@ class MultiLanguageIdentifier(object):
     with open(path) as f:
       return cls.from_modelstring(f.read(), *args, **kwargs)
 
-  def __init__(self, nb_classes, nb_ptc, tk_nextmove, tk_output, n_iters, max_lang, thresh):
-    self.nb_classes = nb_classes
-    self.nb_ptc = nb_ptc
+  def __init__(self, nb_classes, nb_ptc, tk_nextmove, tk_output, langs, n_iters, max_lang, thresh, prior):
     self.tk_nextmove = tk_nextmove
     self.tk_output = tk_output
     self.n_iters = n_iters
     self.max_lang = max_lang
     self.thresh = thresh
+
+    # Class 0 is used for the prior over the feature set
+    if langs is None:
+      self.nb_classes = ('PRIOR',) + nb_classes
+    else:
+      self.nb_classes = ('PRIOR',) + tuple(langs) 
+
+    # Prepare prior and attach it to nb_ptc
+    if prior is None:
+      prior = np.ones(nb_ptc.shape[0])
+    elif len(prior) != nb_ptc.shape[0]:
+      raise ValueError("length of prior does not match number of terms in ptc")
+    prior = np.array(prior, dtype=float) / np.sum(prior) # Normalize to sum 1
+
+    if langs is None:
+      self.nb_ptc = np.hstack((prior[:,None], nb_ptc))
+    else:
+      self.nb_ptc = np.hstack((prior[:,None], nb_ptc[:,[nb_classes.index(l) for l in langs]]))
+
+    logger.debug("initialized a MultiLanguageIdentifier instance")
+    logger.debug("n_iters: {0}".format(self.n_iters))
+    logger.debug("max_lang: {0}".format(self.max_lang))
+    logger.debug("thresh: {0}".format(self.thresh))
+    logger.debug("ptc shape: {0}".format(self.nb_ptc.shape))
 
   def instance2fv(self, text):
     """
@@ -94,13 +119,13 @@ class MultiLanguageIdentifier(object):
 
     return arr
 
-  def explain(self, fv, iters = None, alpha = 0., subset=None):
+  def explain(self, fv, iters = None, alpha = 0., subset = None):
     """
     Explain a feature vector in terms of a set of classes.
     Uses a Gibbs sampler to compute the most likely class distribution
     over the specified class set to have generated this feature vector.
 
-    @param subset specifies the subset of classes to use
+    @param subset specifies the subset of classes to use (defaults to all)
     @returns counts of how many documents have been allocated to each topic
     """
 
@@ -164,43 +189,28 @@ class MultiLanguageIdentifier(object):
       acc += n_t * np.log(sum(lam_c[c] * self.nb_ptc[t,c] for c in classes))
     return acc
 
-  def score(self, text):
+  def identify(self, text):
     # tokenize document into a distribution over terms
     fv = self.instance2fv(text) 
-
-    dist = self.explain(fv)
-    cl_order = np.arange(len(dist))[dist.argsort()]
-
     doclen = np.sum(fv)
 
-    # Tabulate a list of logprob differences after adding each language in
-    # the sequence. We normalize by dividing by the document length.
-    logprobs = []
-    for i in range(1,self.max_lang):
-      cl_set = cl_order[-i:]
-      est_lp = self.logprob(fv, cl_order[-i:], self.n_iters)
-      logprobs.append(est_lp / doclen)
+    dist = self.explain(fv)
+    logger.debug("prior: {0} / {1} ({2:.1f}%)".format(dist[0], dist.sum(), dist[0]*100. / dist.sum()))
+    cl_order = np.arange(len(dist))[dist.argsort()][::-1]
 
-    retval = np.zeros(len(dist))
-    retval[cl_order[-1]] = 5.0 #hardcode 5.0 for most likely class
-    for v, l in zip( np.diff(logprobs), cl_order[-self.max_lang:-1][::-1] ):
-      retval[l] = v
+    # initially explain the document only in terms of the prior
+    lp = self.logprob(fv, [0])
+    cl_set = [0]
 
-    return retval
+    # Ignore the '0' class as it is the "DOMAIN" class.
+    for new_cl in [c for c in cl_order if c != 0 ][:self.max_lang]:
+      cl_set_n = cl_set + [new_cl]
+      est_lp = self.logprob(fv, cl_set_n)
+      improve = (est_lp - lp) / doclen
+      logger.debug("  {0} improves by {1:.3f}".format(self.nb_classes[new_cl], improve))
+      if improve > self.thresh:
+        lp = est_lp
+        cl_set = cl_set_n
 
-  def scoremap(self, text):
-    score = self.score(text)
-    assert len(score) == len(self.nb_classes)
-    retval = dict(zip(self.nb_classes, score))
-    return retval
-
-  def identify(self, text):
-    score = self.score(text)
-    
-    langs = self.nb_classes
-    retval = []
-    for v,l in zip(score, langs):
-      if v > self.thresh:
-        retval.append(l)
-
+    retval = [self.nb_classes[c] for c in cl_set[1:]]
     return retval
