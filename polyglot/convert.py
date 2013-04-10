@@ -11,6 +11,8 @@ import numpy as np
 import bz2, base64
 from cPickle import loads, dumps
 
+from identifier import MultiLanguageIdentifier
+
 def read_nb_model(path):
   def model_file(name):
     return os.path.join(path, name)
@@ -27,6 +29,16 @@ def read_nb_model(path):
 
   return (nb_classes, nb_ptc, tk_nextmove, tk_output)
 
+def write_polyglot_model(model, path):
+  # TODO: Validate model
+  # nb_classes, nb_ptc, tk_nextmove, tk_output = model
+  output = base64.b64encode(bz2.compress(dumps(model)))
+  with open(path, 'w') as f:
+    f.write(output)
+
+def read_polyglot_model(path):
+  with open(path) as f:
+    return MultiLanguageIdentifier.unpack_model(f.read())
 
 
 def main():
@@ -36,9 +48,7 @@ def main():
   args = parser.parse_args()
   
   model = read_nb_model(args.model)
-  output = base64.b64encode(bz2.compress(dumps(model)))
-  with open(args.output, 'w') as f:
-    f.write(output)
+  write_polyglot_model(model)
 
 if __name__ == "__main__":
   main()
