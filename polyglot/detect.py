@@ -75,8 +75,6 @@ def main():
   parser.add_argument('--verbose', '-v', action='store_true', help="verbose output")
   parser.add_argument('--explain', '-e', action='store_true', help="only explain documents as a breakdown over the full language set")
   parser.add_argument('-l', '--langs', dest='langs', help='comma-separated set of target ISO639 language codes (e.g en,de)')
-
-  # TODO: more options for the priors
   parser.add_argument('--prior', '-p', nargs="?", const=True, help="use prior from file PRIOR (computed if PRIOR is not specified)")
 
   parser.add_argument('docs', metavar='FILE', help='file to process (read from stdin if blank)', nargs='*')
