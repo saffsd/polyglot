@@ -15,6 +15,7 @@ from cPickle import loads
 from collections import defaultdict
 
 import config
+from itertools import compress
 
 class MultiLanguageIdentifier(object):
   """
@@ -140,23 +141,25 @@ class MultiLanguageIdentifier(object):
     # Initially random allocation of terms to topics
     K = ptc.shape[1] # number of topics (languages)
     z_n = np.random.randint(0, K, fv.sum())
-    n_m_z = np.bincount(z_n, minlength=K)
+    n_m_z = np.bincount(z_n, minlength=K) + alpha
+
+    t_nz = list(compress(enumerate(fv), fv>0))
 
     for i in range(iters):
         # We have a collased representation of the document, where we
         # only keep the counts of terms and not their relative ordering
         # (which the model assumes is fully exchangeable anyway)
         n = 0 # keep track of the feature index
-        for t, n_t in enumerate(fv):
+        for t, n_t in t_nz:
           for _ in xrange(n_t):
             # discount for n-th word t with topic z
             z = z_n[n]
             n_m_z[z] -= 1
 
             # sampling topic new_z for t
-            # TODO: Can this be any faster?
-            p_z = ptc[t] * (n_m_z + alpha) 
-            new_z = np.random.multinomial(1, p_z / p_z.sum()).argmax()
+            dist = np.cumsum(ptc[t] * n_m_z)
+            samp = np.random.random() * dist[-1]
+            new_z = np.searchsorted(dist,samp)
 
             # set z the new topic and increment counters
             z_n[n] = new_z
@@ -166,9 +169,10 @@ class MultiLanguageIdentifier(object):
 
     # n_m_z must be projected back into the full class space
     retval = np.zeros((self.nb_ptc.shape[1],), dtype=int)
-    retval[subset] = n_m_z
+    retval[subset] = (n_m_z - alpha).astype(int)
 
     return retval
+
 
   def logprob(self, fv, classes, iters=None, lam_c=None):
     """
