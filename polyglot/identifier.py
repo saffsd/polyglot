@@ -180,13 +180,9 @@ class MultiLanguageIdentifier(object):
       lam_c = self.explain(fv, iters, subset=classes)
       lam_c = lam_c.astype(float) / lam_c.sum() # norm to 1
 
-    #acc = len(classes) * np.log(1./len(fv)) # alternative prior
-    acc = 0.
-    for t, n_t in enumerate(fv):
-      if n_t == 0: continue
-      # there are n_t of token t in the document 
-      # TODO: this should be a matrix product
-      acc += n_t * np.log(sum(lam_c[c] * self.nb_ptc[t,c] for c in classes))
+    nz_t = fv > 0 # non-zero features
+    prod = lam_c[classes] * self.nb_ptc[:,classes][nz_t] 
+    acc = np.sum(fv[nz_t] * np.log(np.sum(prod, axis=1)))
     return acc
 
   def identify(self, text):
