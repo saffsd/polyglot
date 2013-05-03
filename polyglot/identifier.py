@@ -193,6 +193,9 @@ class MultiLanguageIdentifier(object):
     # tokenize document into a distribution over terms
     fv = self.instance2fv(text) 
     doclen = np.sum(fv)
+    if doclen == 0:
+      # no LD tokens -> no languages present
+      return []
 
     dist = self.explain(fv)
     logger.debug("prior: {0} / {1} ({2:.1f}%)".format(dist[0], dist.sum(), dist[0]*100. / dist.sum()))
@@ -202,7 +205,6 @@ class MultiLanguageIdentifier(object):
     lp = self.logprob(fv, [0])
     cl_set = [0]
 
-    # Ignore the '0' class as it is the "DOMAIN" class.
     for new_cl in [c for c in cl_order if c != 0 ][:self.max_lang]:
       cl_set_n = cl_set + [new_cl]
       est_lp = self.logprob(fv, cl_set_n)
