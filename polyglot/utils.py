@@ -9,7 +9,7 @@ import multiprocessing as mp
 from itertools import imap
 
 @contextmanager
-def MapPool(processes=None, initializer=None, initargs=None, maxtasksperchild=None, chunksize=1):
+def MapPool(processes=None, initializer=None, initargs=tuple(), maxtasksperchild=None, chunksize=1):
   """
   Contextmanager to express the common pattern of not using multiprocessing if
   only 1 job is allocated (for example for debugging reasons)
