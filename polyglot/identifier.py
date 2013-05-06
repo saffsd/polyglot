@@ -204,15 +204,23 @@ class MultiLanguageIdentifier(object):
     # initially explain the document only in terms of the prior
     lp = self.logprob(fv, [0])
     cl_set = [0]
+    cl_dist = [1.]
 
     for new_cl in [c for c in cl_order if c != 0 ][:self.max_lang]:
       cl_set_n = cl_set + [new_cl]
-      est_lp = self.logprob(fv, cl_set_n)
+      # We obtain lam_c distinct from logprob as we will need it if we decide to keep.
+      lam_c = self.explain(fv, subset=cl_set_n)
+      lam_c = lam_c.astype(float) / lam_c.sum() # norm to 1
+      est_lp = self.logprob(fv, cl_set_n, lam_c=lam_c)
       improve = (est_lp - lp) / doclen
       logger.debug("  {0} improves by {1:.3f}".format(self.nb_classes[new_cl], improve))
       if improve > self.thresh:
         lp = est_lp
         cl_set = cl_set_n
+        cl_dist = lam_c
 
-    retval = [self.nb_classes[c] for c in cl_set[1:]]
+    # Re-normalize the mass over the languages to 1 - ignoring the class0 mass.
+    cl_dist[1:] /= cl_dist[1:].sum()
+
+    retval = { self.nb_classes[c]:cl_dist[c] for c in cl_set[1:]}
     return retval

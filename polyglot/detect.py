@@ -4,10 +4,11 @@ estimating P(t|d).
 
 Marco Lui, March 2013
 """
-import argparse, sys, csv
+import argparse, sys 
 import multiprocessing as mp
 import numpy as np
 import logging
+import json
 logger = logging.getLogger(__name__)
 
 
@@ -41,8 +42,10 @@ def explain(path):
   with open(path) as f:
     fv = _identifier.instance2fv(f.read())
     retval = _identifier.explain(fv)
-
-  return [path] + list(retval)
+  
+  retval = retval.astype(float) / retval.sum()
+  lang_preds = dict((k,v) for k,v in zip(_identifier.nb_classes, retval) if v > 0 )
+  return {'path':path, 'langs':lang_preds}
 
 def identify(path):
   global _identifier
@@ -52,9 +55,9 @@ def identify(path):
     try:
       pred = _identifier.identify(text)
     except ValueError:
-      pred = []
+      pred = {}
 
-  return [path] + pred
+  return {'path':path, 'langs':pred} 
 
 def tokenize(path):
   global _identifier
@@ -65,10 +68,12 @@ def tokenize(path):
   return _identifier.instance2fv(text)
 
 def main():
+  # TODO: output parameters used
+  # TODO: output distribution
   parser = argparse.ArgumentParser()
   parser.add_argument('--iters','-i',type=int, metavar='N', help="perform N iterations of Gibbs sampling", default=config.N_ITERS)
   parser.add_argument('--jobs','-j',type=int, metavar='N', help="use N processes", default=mp.cpu_count())
-  parser.add_argument('--output','-o', help="output file (csv format)")
+  parser.add_argument('--output','-o', help="output file (json format)", type=argparse.FileType('w'), default=sys.stdout)
   parser.add_argument('--max_lang', type=int, help="maximum number of langugages to consider per-document", default=config.MAX_LANG)
   parser.add_argument('--thresh', '-t', type=float, help="threshold for including a language", default=config.THRESHOLD)
   parser.add_argument('--model', '-m', metavar="MODEL", help="path to model")
@@ -82,12 +87,6 @@ def main():
   args = parser.parse_args()
 
   logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
-
-  if args.output:
-    out_f = open(args.output, 'w')
-  else:
-    out_f = sys.stdout
-  writer = csv.writer(out_f)
 
   if args.docs:
     doclist = args.docs
@@ -130,7 +129,6 @@ def main():
   # Determine the type of output
   if args.explain:
     process = explain 
-    writer.writerow(['path'] + langs)
   else:
     process = identify
 
@@ -139,7 +137,8 @@ def main():
   doc_count = 0
   with MapPool(args.jobs, initalizer, initargs, chunksize=chunksize) as p, Timer() as t:
     for retval in p(process, doclist):
-      writer.writerow( retval )
+      json.dump(retval, args.output)
+      args.output.write('\n')
       doc_count += 1
       logger.info("processed {0} docs in {1:.2f}s ({2:.2f} r/s)".format(doc_count, t.elapsed, t.rate(doc_count) ))
 
