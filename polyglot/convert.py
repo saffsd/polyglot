@@ -48,7 +48,7 @@ def main():
   args = parser.parse_args()
   
   model = read_nb_model(args.model)
-  write_polyglot_model(model)
+  write_polyglot_model(model, args.output)
 
 if __name__ == "__main__":
   main()
