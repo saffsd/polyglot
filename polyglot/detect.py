@@ -41,8 +41,12 @@ def explain(path):
 
   with open(path) as f:
     fv = _identifier.instance2fv(f.read())
+    if fv.sum() == 0:
+      # empty document
+      return {'path':path, 'langs':{}}
     retval = _identifier.explain(fv)
   
+  # normalize
   retval = retval.astype(float) / retval.sum()
   lang_preds = dict((k,v) for k,v in zip(_identifier.nb_classes, retval) if v > 0 )
   return {'path':path, 'langs':lang_preds}

@@ -195,7 +195,7 @@ class MultiLanguageIdentifier(object):
     doclen = np.sum(fv)
     if doclen == 0:
       # no LD tokens -> no languages present
-      return []
+      return {}
 
     dist = self.explain(fv)
     logger.debug("prior: {0} / {1} ({2:.1f}%)".format(dist[0], dist.sum(), dist[0]*100. / dist.sum()))
@@ -204,7 +204,7 @@ class MultiLanguageIdentifier(object):
     # initially explain the document only in terms of the prior
     lp = self.logprob(fv, [0])
     cl_set = [0]
-    cl_dist = [1.]
+    cl_dist = np.array([1.])
 
     for new_cl in [c for c in cl_order if c != 0 ][:self.max_lang]:
       cl_set_n = cl_set + [new_cl]
