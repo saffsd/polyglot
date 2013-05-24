@@ -18,10 +18,11 @@ logger = logging.getLogger(__name__)
 
 def read_nb_model(path):
   logger.info("reading model from {0}".format(path))
-  def model_file(name):
-    return os.path.join(path, name)
 
-  with open(model_file('model')) as f:
+  if os.path.isdir(path):
+    path = os.path.join(path, 'model')
+
+  with open(path) as f:
     model = loads(bz2.decompress(base64.b64decode(f.read())))
   nb_ptc, nb_pc, nb_classes, tk_nextmove, tk_output = model
   nb_numfeats = len(nb_ptc) / len(nb_pc)
@@ -30,6 +31,7 @@ def read_nb_model(path):
 
   # Normalize to 1 on the term axis
   for i in range(nb_ptc.shape[1]):
+    logger.debug("normalizing row {0} of {1}".format(i+1, nb_ptc.shape[1]))
     nb_ptc[:,i] = (1/np.exp(nb_ptc[:,i][None,:] - nb_ptc[:,i][:,None]).sum(1))
 
   return (nb_classes, nb_ptc, tk_nextmove, tk_output)
