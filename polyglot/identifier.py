@@ -72,7 +72,7 @@ class MultiLanguageIdentifier(object):
 
     # Class 0 is used for the prior over the feature set
     if langs is None:
-      self.nb_classes = ('PRIOR',) + nb_classes
+      self.nb_classes = ('PRIOR',) + tuple(nb_classes)
     else:
       self.nb_classes = ('PRIOR',) + tuple(langs) 
 
