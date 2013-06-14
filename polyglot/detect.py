@@ -9,6 +9,7 @@ import multiprocessing as mp
 import numpy as np
 import logging
 import json
+import tarfile
 logger = logging.getLogger(__name__)
 
 
@@ -33,42 +34,38 @@ def setup_default_identify(langs=None, n_iters = None, max_lang=None, thresh=Non
   _identifier = MultiLanguageIdentifier.default(langs, n_iters, max_lang, thresh, prior)
 
 
-def explain(path):
+def explain(doc):
   """
   Explain the document as a distribution of tokens over the full language set.
   """
   global _identifier
+  name, text = doc
 
-  with open(path) as f:
-    fv = _identifier.instance2fv(f.read())
-    if fv.sum() == 0:
-      # empty document
-      return {'path':path, 'langs':{}}
-    retval = _identifier.explain(fv)
+  fv = _identifier.instance2fv(text)
+  if fv.sum() == 0:
+    # empty document
+    return {'path':name, 'langs':{}}
+  retval = _identifier.explain(fv)
   
   # normalize
   retval = retval.astype(float) / retval.sum()
   lang_preds = dict((k,v) for k,v in zip(_identifier.nb_classes, retval) if v > 0 )
-  return {'path':path, 'langs':lang_preds}
+  return {'path':name, 'langs':lang_preds}
 
-def identify(path):
+def identify(doc):
   global _identifier
+  name, text = doc
 
-  with open(path) as f:
-    text = f.read()
-    try:
-      pred = _identifier.identify(text)
-    except ValueError:
-      pred = {}
+  try:
+    pred = _identifier.identify(text)
+  except ValueError:
+    pred = {}
 
-  return {'path':path, 'langs':pred} 
+  return {'path':name, 'langs':pred}
 
-def tokenize(path):
+def tokenize(doc):
+  name, text = doc
   global _identifier
-
-  with open(path) as f:
-    text = f.read()
-
   return _identifier.instance2fv(text)
 
 def main():
@@ -85,21 +82,14 @@ def main():
   parser.add_argument('--explain', '-e', action='store_true', help="only explain documents as a breakdown over the full language set")
   parser.add_argument('-l', '--langs', dest='langs', help='comma-separated set of target ISO639 language codes (e.g en,de)')
   parser.add_argument('--prior', '-p', nargs="?", const=True, help="use prior from file PRIOR (computed if PRIOR is not specified)")
+  parser.add_argument('--tarfile', help="process documents in a tarfile")
 
-  parser.add_argument('docs', metavar='FILE', help='file to process (read from stdin if blank)', nargs='*')
+  parser.add_argument('docs', metavar='FILE', help='files to process (read from stdin if blank)', nargs='*')
 
   args = parser.parse_args()
 
   logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
 
-  if args.docs:
-    doclist = args.docs
-  else:
-    doclist = map(str.strip, sys.stdin)
-
-  chunksize = max(1,len(doclist) / (args.jobs + 4))
-
-  logger.info( "processing {0} docs".format(len(doclist)) )
   
   if args.langs:
     langs = args.langs.strip().split(',')
@@ -116,11 +106,39 @@ def main():
     initargs = (langs, args.iters, args.max_lang, args.thresh)
     langs = list(MultiLanguageIdentifier.list_langs())
 
+  if args.docs and args.tarfile:
+    parser.error("no files should be specified if tarfile is used")
+
+  if args.docs:
+    # A list of paths was provided with the invocation
+    doclist = args.docs
+    num_docs = len(doclist)
+    docs = ((d, open(d).read()) for d in doclist)
+    chunksize = max(1,num_docs / (args.jobs + 4))
+    if num_docs < args.jobs:
+      args.jobs = num_docs
+    logger.info( "processing {0} docs".format(num_docs) )
+  elif args.tarfile:
+    # A tarfile is to be processed
+    archive = tarfile.open(args.tarfile)
+    docs = ((m.name, archive.extractfile(m).read()) for m in archive if m.isfile())
+    chunksize = 20 
+    logger.info( "processing a tarfile" )
+  else:
+    # A list of files is read from stdin if filenames are not provided
+    doclist = map(str.strip, sys.stdin)
+    num_docs = len(doclist)
+    docs = ((d, open(d).read()) for d in doclist)
+    chunksize = max(1,num_docs / (args.jobs + 4))
+    if num_docs < args.jobs:
+      args.jobs = num_docs
+    logger.info( "processing {0} docs".format(num_docs) )
+
   if args.prior:
     if args.prior is True:
       logger.debug("using average document as prior")
       with MapPool(args.jobs, initalizer, initargs, chunksize=chunksize) as p:
-        fvs = [ v.astype(float) / v.sum() for v in p(tokenize, doclist)]
+        fvs = [ v.astype(float) / v.sum() for v in p(tokenize, docs)]
       prior = np.sum(fvs, axis=0)
     else:
       logger.debug("loading prior from: {0}".format(args.prior))
@@ -140,7 +158,7 @@ def main():
   # Process the documents specified
   doc_count = 0
   with MapPool(args.jobs, initalizer, initargs, chunksize=chunksize) as p, Timer() as t:
-    for retval in p(process, doclist):
+    for retval in p(process, docs):
       json.dump(retval, args.output)
       args.output.write('\n')
       doc_count += 1
