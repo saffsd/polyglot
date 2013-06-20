@@ -103,11 +103,15 @@ def main():
   if args.model:
     initalizer = setup_identify
     initargs = (args.model, langs, args.iters, args.max_lang, args.thresh)
-    langs = list(MultiLanguageIdentifier.list_langs(args.model))
+    avail_langs = set(MultiLanguageIdentifier.list_langs(args.model))
   else:
     initalizer = setup_default_identify
     initargs = (langs, args.iters, args.max_lang, args.thresh)
-    langs = list(MultiLanguageIdentifier.list_langs())
+    avail_langs = set(MultiLanguageIdentifier.list_langs())
+
+  for l in langs:
+    if l not in avail_langs:
+      parser.error("language {} not in the available set".format(l))
 
   if args.docs and args.tarfile:
     parser.error("no files should be specified if tarfile is used")
