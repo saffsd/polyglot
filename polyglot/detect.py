@@ -72,11 +72,14 @@ def main():
   # TODO: output parameters used
   # TODO: output distribution
   parser = argparse.ArgumentParser()
-  parser.add_argument('--iters','-i',type=int, metavar='N', help="perform N iterations of Gibbs sampling", default=config.N_ITERS)
+  parser.add_argument('--iters','-i',type=int, metavar='N', default=config.N_ITERS,
+                      help="perform N iterations of Gibbs sampling (default: {})".format(config.N_ITERS) )
   parser.add_argument('--jobs','-j',type=int, metavar='N', help="use N processes", default=mp.cpu_count())
   parser.add_argument('--output','-o', help="output file (json format)", type=argparse.FileType('w'), default=sys.stdout)
-  parser.add_argument('--max_lang', type=int, help="maximum number of langugages to consider per-document", default=config.MAX_LANG)
-  parser.add_argument('--thresh', '-t', type=float, help="threshold for including a language", default=config.THRESHOLD)
+  parser.add_argument('--max_lang', type=int, default=config.MAX_LANG,
+                      help="maximum number of langugages to consider per-document (default: {})".format(config.MAX_LANG))
+  parser.add_argument('--thresh', '-t', type=float, default=config.THRESHOLD,
+                      help="threshold for including a language (default: {})".format(config.THRESHOLD))
   parser.add_argument('--model', '-m', metavar="MODEL", help="path to model")
   parser.add_argument('--verbose', '-v', action='store_true', help="verbose output")
   parser.add_argument('--explain', '-e', action='store_true', help="only explain documents as a breakdown over the full language set")
