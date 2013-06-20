@@ -70,16 +70,20 @@ class MultiLanguageIdentifier(object):
     self.max_lang = max_lang
     self.thresh = thresh
 
+
     # Class 0 is used for the prior over the feature set
     if langs is None:
       self.nb_classes = ('PRIOR',) + tuple(nb_classes)
     else:
       self.nb_classes = ('PRIOR',) + tuple(langs) 
 
+    logger.debug("nb_classes: {}".format(self.nb_classes))
+
     # Prepare prior and attach it to nb_ptc
     if prior is None:
       prior = np.ones(nb_ptc.shape[0])
-    elif len(prior) != nb_ptc.shape[0]:
+    
+    if len(prior) != nb_ptc.shape[0]:
       raise ValueError("length of prior does not match number of terms in ptc")
     prior = np.array(prior, dtype=float) / np.sum(prior) # Normalize to sum 1
 
@@ -201,10 +205,10 @@ class MultiLanguageIdentifier(object):
     logger.debug("prior: {0} / {1} ({2:.1f}%)".format(dist[0], dist.sum(), dist[0]*100. / dist.sum()))
     cl_order = np.arange(len(dist))[dist.argsort()][::-1]
 
-    # initially explain the document only in terms of the prior
-    lp = self.logprob(fv, [0])
+    # initially explain the document only in terms of the prior 
     cl_set = [0]
-    cl_dist = np.array([1.])
+    cl_dist = np.array([1.]) 
+    lp = self.logprob(fv, cl_set)
 
     for new_cl in [c for c in cl_order if c != 0 ][:self.max_lang]:
       cl_set_n = cl_set + [new_cl]
@@ -213,11 +217,13 @@ class MultiLanguageIdentifier(object):
       lam_c = lam_c.astype(float) / lam_c.sum() # norm to 1
       est_lp = self.logprob(fv, cl_set_n, lam_c=lam_c)
       improve = (est_lp - lp) / doclen
-      logger.debug("  {0} improves by {1:.3f}".format(self.nb_classes[new_cl], improve))
       if improve > self.thresh:
+        logger.debug("  {0} ACCEPT (improves by {1:.3f})".format(self.nb_classes[new_cl], improve))
         lp = est_lp
         cl_set = cl_set_n
         cl_dist = lam_c
+      else:
+        logger.debug("  {0} REJECT (improves by {1:.3f})".format(self.nb_classes[new_cl], improve))
 
     # Re-normalize the mass over the languages to 1 - ignoring the class0 mass.
     cl_dist[1:] /= cl_dist[1:].sum()
