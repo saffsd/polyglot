@@ -85,9 +85,11 @@ def main():
   parser.add_argument('--explain', '-e', action='store_true', help="only explain documents as a breakdown over the full language set")
   parser.add_argument('-l', '--langs', dest='langs', help='comma-separated set of target ISO639 language codes (e.g en,de)')
   parser.add_argument('--prior', '-p', nargs="?", const=True, help="use prior from file PRIOR (computed if PRIOR is not specified)")
-  parser.add_argument('--tarfile', help="process documents in a tarfile")
 
-  parser.add_argument('docs', metavar='FILE', help='files to process (read from stdin if blank)', nargs='*')
+  docgroup = parser.add_mutually_exclusive_group(required=True)
+  docgroup.add_argument('--tarfile', help="process documents in a tarfile")
+  docgroup.add_argument('--bootcat', help="process a bootcat corpus")
+  docgroup.add_argument('--docs', metavar='FILE', help='files to process (read from stdin if blank)', nargs='*')
 
   args = parser.parse_args()
 
@@ -109,12 +111,13 @@ def main():
     initargs = (langs, args.iters, args.max_lang, args.thresh)
     avail_langs = set(MultiLanguageIdentifier.list_langs())
 
-  for l in langs:
-    if l not in avail_langs:
-      parser.error("language {} not in the available set".format(l))
+  if langs is not None:
+		for l in langs:
+			if l not in avail_langs:
+				parser.error("language {} not in the available set".format(l))
 
-  if args.docs and args.tarfile:
-    parser.error("no files should be specified if tarfile is used")
+  #if args.docs and args.tarfile:
+  #  parser.error("no files should be specified if tarfile is used")
 
   if args.docs:
     # A list of paths was provided with the invocation
@@ -131,6 +134,18 @@ def main():
     docs = ((m.name, archive.extractfile(m).read()) for m in archive if m.isfile())
     chunksize = 20 
     logger.info( "processing a tarfile" )
+  elif args.bootcat:
+    # Process a bootcat corpus
+    def bootcat_iter(path):
+      with open(path) as in_f:
+        for row in in_f:
+          if row.startswith('CURRENT URL'):
+            docname = row.split()[-1]
+          else:
+            yield (docname, row)
+    docs = bootcat_iter(args.bootcat)
+    chunksize = 20 
+    logger.info( "processing a bootcat corpus" )
   else:
     # A list of files is read from stdin if filenames are not provided
     doclist = map(str.strip, sys.stdin)
