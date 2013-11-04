@@ -3,4 +3,10 @@ written in more than one language, and for identifying the languages therein.
 It is an experimental project. For monolingual language detection, langid.py[1]
 is a proven off-the-shelf solution.
 
+The theoretical motivation behind it is described in a forthcoming TACL paper.
+A preprint can be obtained by directly contacting the author.
+
+Marco Lui <saffsd@gmail.com>,
+November 2013
+
 [1] https://github.com/saffsd/langid.py
