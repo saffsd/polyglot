@@ -3,10 +3,16 @@ written in more than one language, and for identifying the languages therein.
 It is an experimental project. For monolingual language detection, langid.py[1]
 is a proven off-the-shelf solution.
 
-The theoretical motivation behind it is described in a forthcoming TACL paper.
-A preprint can be obtained by directly contacting the author.
+The theoretical motivation behind it is described in "Automatic Detection and 
+Language Identification of Multilingual Documents.  Marco Lui, Jey Han Lau, 
+Timothy Baldwin. TACL Vol 2 (2014)" [2].
+
+To re-train polyglot on custom data, use the training tools for langid.py [1] 
+to build a model, and convert it to polyglot's format using the script in 
+./polyglot/convert.py
 
 Marco Lui <saffsd@gmail.com>,
 November 2013
 
 [1] https://github.com/saffsd/langid.py
+[2] https://tacl2013.cs.columbia.edu/ojs/index.php/tacl/article/view/86
